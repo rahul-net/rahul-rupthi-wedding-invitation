@@ -8,21 +8,34 @@ export function initInvitation(): void {
   if ((window as any).__invitationInitialized) return;
   (window as any).__invitationInitialized = true;
 
-  // Gallery consumer (added 2026-10-25): the hidden admin panel writes
-  // gallery.json to rahul-net/Wedding-Invitation. Load it here, in place,
-  // so this converted site shows the same admin gallery as the single-file
-  // site. Any failure keeps the built-in 3 images. CORS: GitHub Pages
-  // serves Access-Control-Allow-Origin: *.
+  // Gallery consumer (added 2026-10-25, dynamic count 2026-10-25):
+  // rebuilds slides when the admin gallery count changes.
   (async function loadRemoteGallery() {
     try {
       const res = await fetch('https://rahul-net.github.io/Wedding-Invitation/gallery.json?t=' + Date.now(), { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
       const imgs = (data && data.images) || [];
-      const slides = document.querySelectorAll('.slide img');
-      for (let i = 0; i < slides.length && i < imgs.length; i++) {
-        if (imgs[i] && imgs[i].url) (slides[i] as HTMLImageElement).src = imgs[i].url;
+      if (!imgs.length) return;
+      const show = document.querySelector('.slideshow');
+      if (!show) return;
+      const existing = show.querySelectorAll('.slide img');
+      if (existing.length === imgs.length) {
+        for (let i = 0; i < imgs.length; i++) {
+          if (imgs[i] && imgs[i].url) (existing[i] as HTMLImageElement).src = imgs[i].url;
+        }
+        return;
       }
+      show.innerHTML = '';
+      imgs.forEach(function (im: any, idx: number) {
+        const d = document.createElement('div');
+        d.className = 'slide' + (idx === 0 ? ' active' : '');
+        const img = document.createElement('img');
+        img.src = im.url;
+        img.alt = 'Rahul & Rupthi ' + (idx + 1);
+        d.appendChild(img);
+        show.appendChild(d);
+      });
     } catch (e) { /* offline / no gallery.json: keep defaults */ }
   })();
 
@@ -192,12 +205,14 @@ function openInvite() {
         }
 
         function initSlides() {
-            const slides = document.querySelectorAll('.slide');
             let current = 0;
             setInterval(() => {
-                slides[current].classList.remove('active');
-                current = (current + 1) % slides.length;
+                const slides = document.querySelectorAll('.slide');
+                if (!slides.length) return;
+                if (current >= slides.length) current = 0;
+                slides.forEach(function (s) { s.classList.remove('active'); });
                 slides[current].classList.add('active');
+                current = (current + 1) % slides.length;
             }, 3500);
         }
 
@@ -608,17 +623,17 @@ function toBase64(file) {
 }
         
     
-// ===== Hidden Gallery Admin (added 2026-10-25) =====
+// ===== Hidden Gallery Admin — dynamic gallery (added 2026-10-25, updated: add up to 50) =====
 // Gallery data lives in the PUBLIC repo rahul-net/Wedding-Invitation:
 //   gallery.json  -> https://rahul-net.github.io/Wedding-Invitation/gallery.json
-//   gallery/gallery-1.jpg etc. -> same Pages base.
-// Visitors (website, converted React site and this APK when online) fetch
-// gallery.json and fall back to the 3 built-in images if the fetch fails.
+//   gallery/gallery-<timestamp>.jpg -> same Pages base.
+// Visitors fetch gallery.json and fall back to the 3 built-in images.
+// Adding a photo APPENDS to the list: existing photos stay. Replacing or
+// deleting one photo only affects that photo. Max 50 photos in total.
 // The admin's GitHub token is stored ONLY in this browser/device's
-// localStorage (key below). It is never written into the page source,
-// never into gallery.json, and never sent anywhere except api.github.com.
-// A simple password in HTML could not update the site for everyone, and
-// anyone reading the source could see it, so the token route is used.
+// localStorage. It is never written into the page source, never into
+// gallery.json, and never sent anywhere except api.github.com.
+// PIN is checked as a SHA-256 hash only; the PIN itself is not in code.
 (function () {
   'use strict';
   var OWNER = 'rahul-net';
@@ -629,6 +644,7 @@ function toBase64(file) {
   var TOKEN_KEY = 'wedding_admin_gh_token';
   var API = 'https://api.github.com/repos/' + OWNER + '/' + REPO + '/contents/';
   var OUT_W = 800, OUT_H = 1000; // 4:5, the locked gallery ratio
+  var MAX_GALLERY = 50;
 
   var DEFAULTS = [
     'https://images.unsplash.com/photo-1777554800812-3dff04d85db0?auto=format&fit=crop&w=800&q=80',
@@ -641,27 +657,40 @@ function toBase64(file) {
   function setToken(t) { try { localStorage.setItem(TOKEN_KEY, t); } catch (e) {} }
   function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
 
-  // ----- Visitor gallery: update the 3 existing slide <img> in place -----
-  // In-place update keeps the original slideshow timer (which captured the
-  // original slide nodes) working. No slide is ever rebuilt here.
+  // ----- Visitor gallery: any count, not just 3 -----
+  // If the count matches, update src in place (keeps the slideshow timer's
+  // nodes). If it differs, rebuild the slides; the slideshow code queries
+  // the slides on every tick, so a rebuilt list still cycles correctly.
   async function loadRemoteGallery() {
     try {
       var res = await fetch(GALLERY_URL + '?t=' + Date.now(), { cache: 'no-store' });
       if (!res.ok) return;
       var data = await res.json();
       var imgs = (data && data.images) || [];
-      var slides = document.querySelectorAll('.slide img');
-      for (var i = 0; i < slides.length && i < imgs.length; i++) {
-        if (imgs[i] && imgs[i].url) slides[i].src = imgs[i].url;
+      if (!imgs.length) return;
+      var show = document.querySelector('.slideshow');
+      if (!show) return;
+      var existing = show.querySelectorAll('.slide img');
+      if (existing.length === imgs.length) {
+        for (var i = 0; i < imgs.length; i++) {
+          if (imgs[i] && imgs[i].url) existing[i].src = imgs[i].url;
+        }
+        return;
       }
+      show.innerHTML = '';
+      imgs.forEach(function (im, idx) {
+        var d = document.createElement('div');
+        d.className = 'slide' + (idx === 0 ? ' active' : '');
+        var img = document.createElement('img');
+        img.src = im.url;
+        img.alt = 'Rahul & Rupthi ' + (idx + 1);
+        d.appendChild(img);
+        show.appendChild(d);
+      });
     } catch (e) { /* offline / no gallery.json yet: keep built-in images */ }
   }
 
   // ----- Login: PIN gate, then token (one-time setup) -----
-  // The PIN itself is NOT stored in this code, only its SHA-256 hash.
-  // A 4-digit PIN is a convenience gate, not strong security: the real
-  // protection is the GitHub token, which lives only on the admin device.
-  // A visitor without that token cannot upload, even if they open the panel.
   var PIN_HASH = '0985b889a1fe4f4e1fb925061ac6fb2247f10875f5fcbe63eec2ab55ed68970e';
   var pinVerified = false;
   async function sha256Hex(str) {
@@ -720,7 +749,6 @@ function toBase64(file) {
 
   async function connectAdmin() {
     var status = $('admin-login-status');
-    // Step 1: PIN gate. Step 2 (only if no token is saved yet): token setup.
     if (!pinVerified) {
       var pin = $('admin-pin').value.trim();
       if (!pin) { status.textContent = 'Please enter your PIN.'; return; }
@@ -728,9 +756,7 @@ function toBase64(file) {
         if (await sha256Hex(pin) !== PIN_HASH) { status.textContent = 'Wrong PIN.'; return; }
       } catch (e) { status.textContent = 'PIN check needs a secure page. Please open the site over https.'; return; }
       pinVerified = true;
-      if (getToken()) {
-        // Token already on this device: PIN alone is enough from here.
-      } else {
+      if (!getToken()) {
         $('admin-token-wrap').style.display = 'block';
         status.textContent = 'PIN correct. Paste your GitHub token once, then tap Continue again.';
         return;
@@ -769,35 +795,26 @@ function toBase64(file) {
     $('admin-login-status').textContent = 'Token removed from this device.';
   }
 
-  // ----- Crop editor state: one editor object per slot -----
-  var editors = [null, null, null];
-  function makeEditor(slotIndex) {
-    return {
-      slot: slotIndex, img: null, imgUrl: '', mode: 'full', zoom: 1,
-      dx: 0, dy: 0, dragging: false, startX: 0, startY: 0, startDx: 0, startDy: 0
-    };
+  // ----- Single crop editor (used for both Add and Replace) -----
+  var ed = { img: null, imgUrl: '', mode: 'full', zoom: 1, dx: 0, dy: 0, dragging: false, startX: 0, startY: 0, startDx: 0, startDy: 0 };
+  var editingIndex = null; // null = adding a new photo, number = replacing that photo
+  var deleteArmed = null;
+
+  function editorEls() {
+    return { preview: $('admin-crop'), img: $('admin-crop-img'), zoom: $('admin-zoom'), status: $('admin-editor-status') };
   }
-  function editorEls(i) {
-    return {
-      preview: $('admin-crop-' + i), img: $('admin-crop-img-' + i),
-      zoom: $('admin-zoom-' + i), status: $('admin-slot-status-' + i)
-    };
-  }
-  function drawPreview(ed) {
-    var els = editorEls(ed.slot);
+  function drawPreview() {
+    var els = editorEls();
     if (!ed.img) { els.img.style.display = 'none'; return; }
     els.img.style.display = 'block';
     if (ed.mode === 'full') {
-      // Full photo, no cut: blurred same-photo background + contained photo.
       els.preview.style.backgroundImage = 'url(' + ed.imgUrl + ')';
       els.preview.style.backgroundSize = 'cover';
       els.preview.style.backgroundPosition = 'center';
-      els.preview.style.filter = '';
       els.img.style.objectFit = 'contain';
       els.img.style.transform = 'none';
       els.img.style.width = '100%';
       els.img.style.height = '100%';
-      els.img.style.filter = 'none';
     } else {
       els.preview.style.backgroundImage = 'none';
       els.img.style.objectFit = 'cover';
@@ -805,17 +822,15 @@ function toBase64(file) {
       els.img.style.height = '100%';
       els.img.style.transform = 'translate(' + ed.dx + 'px,' + ed.dy + 'px) scale(' + ed.zoom + ')';
     }
-    // Blur is applied to a separate background layer via CSS class on preview
     els.preview.classList.toggle('admin-full-bg', ed.mode === 'full');
   }
-  function setEditorImage(ed, imgEl, url) {
+  function setEditorImage(imgEl, url) {
     ed.img = imgEl; ed.imgUrl = url; ed.zoom = 1; ed.dx = 0; ed.dy = 0;
-    drawPreview(ed);
-    maybeCenterOnFace(ed);
+    var z = $('admin-zoom'); if (z) z.value = '1';
+    drawPreview();
+    maybeCenterOnFace();
   }
-  async function maybeCenterOnFace(ed) {
-    // Best effort only: Chrome's FaceDetector, when available, centres the
-    // crop on the first detected face. Any failure silently keeps centre.
+  async function maybeCenterOnFace() {
     try {
       if (!window.FaceDetector || !ed.img) return;
       var det = new FaceDetector({ fastMode: true });
@@ -824,26 +839,21 @@ function toBase64(file) {
         var b = faces[0].boundingBox;
         var fx = (b.x + b.width / 2) / ed.img.naturalWidth;
         var fy = (b.y + b.height / 2) / ed.img.naturalHeight;
-        var els = editorEls(ed.slot);
-        var rect = els.preview.getBoundingClientRect();
-        // In fill mode the image is cover-scaled; shift so the face lands
-        // near the centre of the frame. Clamped in renderCanvas anyway.
+        var rect = editorEls().preview.getBoundingClientRect();
         ed.dx = Math.round((0.5 - fx) * rect.width * 0.6);
         ed.dy = Math.round((0.5 - fy) * rect.height * 0.6);
-        drawPreview(ed);
+        drawPreview();
       }
     } catch (e) {}
   }
-  function renderCanvas(ed) {
+  function renderCanvas() {
     return new Promise(function (resolve, reject) {
-      if (!ed.img) return reject(new Error('No image chosen for this slot.'));
+      if (!ed.img) return reject(new Error('No image chosen. Upload a photo or paste an image URL first.'));
       var c = document.createElement('canvas');
       c.width = OUT_W; c.height = OUT_H;
       var ctx = c.getContext('2d');
       var iw = ed.img.naturalWidth, ih = ed.img.naturalHeight;
       if (ed.mode === 'full') {
-        // Blurred cover background, then the whole photo contained on top.
-        // Nothing is cut: face and body always stay inside the frame.
         ctx.filter = 'blur(24px) brightness(0.75)';
         var bs = Math.max(OUT_W / iw, OUT_H / ih);
         ctx.drawImage(ed.img, (OUT_W - iw * bs) / 2, (OUT_H - ih * bs) / 2, iw * bs, ih * bs);
@@ -851,160 +861,209 @@ function toBase64(file) {
         var cs = Math.min(OUT_W / iw, OUT_H / ih);
         ctx.drawImage(ed.img, (OUT_W - iw * cs) / 2, (OUT_H - ih * cs) / 2, iw * cs, ih * cs);
       } else {
-        // Fill mode: preview transform, converted back to a source crop.
-        // Preview container is 4:5, so the same math as the live gallery.
-        var els = editorEls(ed.slot);
-        var rect = els.preview.getBoundingClientRect();
+        var rect = editorEls().preview.getBoundingClientRect();
         var pw = rect.width || 300, ph = rect.height || 375;
         var base = Math.max(pw / iw, ph / ih);
         var scale = base * ed.zoom;
         var cropW = pw / scale, cropH = ph / scale;
-        var cx = (iw - cropW) / 2 - ed.dx / scale;
-        var cy = (ih - cropH) / 2 - ed.dy / scale;
-        cx = Math.max(0, Math.min(iw - cropW, cx));
-        cy = Math.max(0, Math.min(ih - cropH, cy));
+        var cx = Math.max(0, Math.min(iw - cropW, (iw - cropW) / 2 - ed.dx / scale));
+        var cy = Math.max(0, Math.min(ih - cropH, (ih - cropH) / 2 - ed.dy / scale));
         ctx.drawImage(ed.img, cx, cy, cropW, cropH, 0, 0, OUT_W, OUT_H);
       }
       c.toBlob(function (b) { b ? resolve(b) : reject(new Error('Could not render image.')); }, 'image/jpeg', 0.85);
     });
   }
-
-  function renderAdminPanel() {
-    var wrap = $('admin-slots');
-    wrap.innerHTML = '';
-    for (var i = 0; i < 3; i++) {
-      if (!editors[i]) editors[i] = makeEditor(i);
-      var ed = editors[i];
-      var cur = (currentGallery.images[i] && currentGallery.images[i].url) || DEFAULTS[i];
-      var div = document.createElement('div');
-      div.className = 'admin-slot';
-      div.innerHTML =
-        '<p class="admin-slot-title">Gallery photo ' + (i + 1) + '</p>' +
-        '<p class="admin-slot-current">Current: <a href="' + cur + '" target="_blank" rel="noopener">view current</a></p>' +
-        '<div class="admin-crop" id="admin-crop-' + i + '">' +
-          '<img id="admin-crop-img-' + i + '" alt="Crop preview ' + (i + 1) + '">' +
-        '</div>' +
-        '<input type="file" accept="image/*" class="admin-file" id="admin-file-' + i + '">' +
-        '<input type="text" placeholder="Or paste an image URL" class="admin-url" id="admin-url-' + i + '">' +
-        '<label class="admin-label">Mode: ' +
-          '<select id="admin-mode-' + i + '">' +
-            '<option value="full">Full photo, no cut (blurred background)</option>' +
-            '<option value="fill">Fill frame, drag to position</option>' +
-          '</select></label>' +
-        '<label class="admin-label">Zoom (fill mode): ' +
-          '<input type="range" min="1" max="2.5" step="0.05" value="1" id="admin-zoom-' + i + '"></label>' +
-        '<button class="admin-save-btn" id="admin-save-' + i + '">Save this photo for everyone</button>' +
-        '<button class="admin-reset-btn" id="admin-reset-' + i + '">Back to original photo</button>' +
-        '<p class="admin-slot-status" id="admin-slot-status-' + i + '"></p>';
-      wrap.appendChild(div);
-      (function (ed2, idx) {
-        var els = editorEls(idx);
-        // Drag to position (fill mode). Touch uses pointer events.
-        els.preview.addEventListener('pointerdown', function (ev) {
-          if (ed2.mode !== 'fill' || !ed2.img) return;
-          ed2.dragging = true; ed2.startX = ev.clientX; ed2.startY = ev.clientY;
-          ed2.startDx = ed2.dx; ed2.startDy = ed2.dy;
-          els.preview.setPointerCapture(ev.pointerId);
-        });
-        els.preview.addEventListener('pointermove', function (ev) {
-          if (!ed2.dragging) return;
-          ed2.dx = ed2.startDx + (ev.clientX - ed2.startX);
-          ed2.dy = ed2.startDy + (ev.clientY - ed2.startY);
-          drawPreview(ed2);
-        });
-        ['pointerup', 'pointercancel'].forEach(function (t) {
-          els.preview.addEventListener(t, function () { ed2.dragging = false; });
-        });
-        els.zoom.addEventListener('input', function () { ed2.zoom = parseFloat(els.zoom.value); drawPreview(ed2); });
-        $('admin-mode-' + idx).addEventListener('change', function (ev) { ed2.mode = ev.target.value; drawPreview(ed2); });
-        $('admin-file-' + idx).addEventListener('change', function (ev) {
-          var f = ev.target.files && ev.target.files[0];
-          if (!f) return;
-          var url = URL.createObjectURL(f);
-          var im = new Image();
-          im.onload = function () { setEditorImage(ed2, im, url); editorEls(idx).status.textContent = 'Preview ready. Check face and body, then Save.'; };
-          im.onerror = function () { editorEls(idx).status.textContent = 'Could not read that image.'; };
-          im.src = url;
-        });
-        $('admin-url-' + idx).addEventListener('change', function (ev) {
-          var url = ev.target.value.trim();
-          if (!url) return;
-          var im = new Image();
-          im.crossOrigin = 'anonymous';
-          im.onload = function () { setEditorImage(ed2, im, url); editorEls(idx).status.textContent = 'Preview ready. Note: some hosts block canvas export; if Save fails, upload the file instead.'; };
-          im.onerror = function () { editorEls(idx).status.textContent = 'Could not load that URL.'; };
-          im.src = url;
-        });
-        $('admin-save-' + idx).addEventListener('click', function () { saveSlot(idx); });
-        $('admin-reset-' + idx).addEventListener('click', function () { resetSlot(idx); });
-      })(ed, i);
-    }
+  function clearEditor() {
+    ed.img = null; ed.imgUrl = ''; editingIndex = null;
+    var t = $('admin-editor-title'); if (t) t.textContent = 'Add new photo';
+    var sr = $('admin-save-replace'); if (sr) sr.style.display = 'none';
+    var f = $('admin-file'); if (f) f.value = '';
+    var u = $('admin-url'); if (u) u.value = '';
+    drawPreview();
   }
 
-  async function saveSlot(idx) {
-    var ed = editors[idx];
-    var status = editorEls(idx).status;
-    if (!ed || !ed.img) { status.textContent = 'First choose a photo for this slot (upload or URL).'; return; }
+  // ----- Panel rendering: current list + editor -----
+  function renderAdminPanel() {
+    var list = $('admin-gallery-list');
+    var imgs = (currentGallery && currentGallery.images) || [];
+    var html = '<p class="admin-count">Gallery now: <b>' + imgs.length + ' / ' + MAX_GALLERY + '</b> photos. New photos are added at the end — existing photos stay.</p>';
+    html += '<div class="admin-gallery-grid">';
+    imgs.forEach(function (im, idx) {
+      html += '<div class="admin-gallery-item">' +
+        '<img src="' + im.url + '" alt="Gallery photo ' + (idx + 1) + '" loading="lazy">' +
+        '<p>Photo ' + (idx + 1) + '</p>' +
+        '<button class="admin-small-btn" data-replace="' + idx + '">Replace</button> ' +
+        '<button class="admin-small-btn admin-danger-btn" data-delete="' + idx + '">Delete</button>' +
+        '</div>';
+    });
+    html += '</div>';
+    list.innerHTML = html;
+    list.querySelectorAll('[data-replace]').forEach(function (btn) {
+      btn.addEventListener('click', function () { startReplace(parseInt(btn.getAttribute('data-replace'), 10)); });
+    });
+    list.querySelectorAll('[data-delete]').forEach(function (btn) {
+      btn.addEventListener('click', function () { onDeleteClick(parseInt(btn.getAttribute('data-delete'), 10), btn); });
+    });
+    clearEditor();
+  }
+  function startReplace(idx) {
+    var url = currentGallery.images[idx].url;
+    editingIndex = idx;
+    var t = $('admin-editor-title'); if (t) t.textContent = 'Replace photo ' + (idx + 1);
+    var sr = $('admin-save-replace'); if (sr) sr.style.display = 'block';
+    var status = editorEls().status;
+    status.textContent = 'Loading current photo into the editor…';
+    var im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = function () { setEditorImage(im, url); status.textContent = 'Adjust the photo, then tap Save replacement.'; };
+    im.onerror = function () { status.textContent = 'Could not load that photo for editing. Upload the replacement file instead.'; ed.img = null; };
+    im.src = url;
+    var editor = $('admin-editor'); if (editor) editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function onDeleteClick(idx, btn) {
+    // Two-tap delete (no window.confirm: it does not work reliably in WebView).
+    if (deleteArmed === idx) {
+      deleteArmed = null;
+      deletePhoto(idx);
+    } else {
+      deleteArmed = idx;
+      btn.textContent = 'Tap again to confirm delete';
+      setTimeout(function () { if (deleteArmed === idx) { deleteArmed = null; renderAdminPanel(); } }, 4000);
+    }
+  }
+  async function publishGallery() {
+    var gItem = await ghJson('gallery.json');
+    if (gItem) gallerySha = gItem.sha;
+    var body = { message: 'Admin: update gallery.json', content: encodeContent(currentGallery), branch: BRANCH };
+    if (gallerySha) body.sha = gallerySha;
+    var put = await gh('gallery.json', 'PUT', body);
+    if (!put.ok) throw new Error('Gallery publish failed (HTTP ' + put.status + ').');
+    gallerySha = (await put.json()).content.sha;
+  }
+  async function uploadCropped(blob) {
+    var b64 = await blobToBase64(blob);
+    var path = 'gallery/gallery-' + Date.now() + '.jpg';
+    var put = await gh(path, 'PUT', { message: 'Admin: upload gallery photo', content: b64, branch: BRANCH });
+    if (!put.ok) throw new Error('Photo upload failed (HTTP ' + put.status + '). Check the token Contents permission.');
+    return PAGES_BASE + path;
+  }
+  async function tryDeleteRepoFile(url) {
+    try {
+      if (url.indexOf(PAGES_BASE + 'gallery/') !== 0) return;
+      var path = url.substring(PAGES_BASE.length);
+      var item = await ghJson(path);
+      if (!item) return;
+      await gh(path, 'DELETE', { message: 'Admin: remove gallery photo', sha: item.sha, branch: BRANCH });
+    } catch (e) {}
+  }
+  async function saveNew() {
+    var status = editorEls().status;
+    var imgs = currentGallery.images;
+    if (imgs.length >= MAX_GALLERY) { status.textContent = 'Gallery is full (50 photos). Delete one photo first, then add a new one.'; return; }
+    if (!ed.img) { status.textContent = 'First choose a photo (upload or URL).'; return; }
     status.textContent = 'Rendering 4:5 photo…';
     try {
-      var blob = await renderCanvas(ed);
-      var b64 = await blobToBase64(blob);
-      var path = 'gallery/gallery-' + (idx + 1) + '.jpg';
+      var blob = await renderCanvas();
       status.textContent = 'Uploading photo…';
-      var existing = await ghJson(path);
-      var putBody = { message: 'Admin: update gallery photo ' + (idx + 1), content: b64, branch: BRANCH };
-      if (existing) putBody.sha = existing.sha;
-      var put = await gh(path, 'PUT', putBody);
-      if (!put.ok) throw new Error('Photo upload failed (HTTP ' + put.status + '). Check the token Contents permission.');
+      var pageUrl = await uploadCropped(blob);
+      imgs.push({ url: pageUrl, mode: ed.mode, slot: imgs.length + 1, updatedAt: new Date().toISOString() });
       status.textContent = 'Publishing gallery…';
-      // Re-read gallery.json sha so concurrent edits do not clash.
-      var gItem = await ghJson('gallery.json');
-      if (gItem) { gallerySha = gItem.sha; currentGallery = decodeContent(gItem) || currentGallery; }
-      if (!currentGallery.images) currentGallery.images = [];
-      var pageUrl = PAGES_BASE + path;
-      currentGallery.images[idx] = { url: pageUrl, mode: ed.mode, slot: idx + 1, updatedAt: new Date().toISOString() };
-      // Fill any missing slots with defaults so the gallery always has 3.
-      for (var k = 0; k < 3; k++) {
-        if (!currentGallery.images[k]) currentGallery.images[k] = { url: DEFAULTS[k].indexOf('http') === 0 ? DEFAULTS[k] : PAGES_BASE + DEFAULTS[k], mode: 'default', slot: k + 1 };
-      }
-      var gBody = { message: 'Admin: update gallery.json (photo ' + (idx + 1) + ')', content: encodeContent(currentGallery), branch: BRANCH };
-      if (gallerySha) gBody.sha = gallerySha;
-      var gPut = await gh('gallery.json', 'PUT', gBody);
-      if (!gPut.ok) throw new Error('Gallery publish failed (HTTP ' + gPut.status + ').');
-      var gNew = await gPut.json();
-      gallerySha = gNew.content.sha;
-      status.textContent = 'Saved for everyone. The site updates within a couple of minutes (Pages cache).';
+      await publishGallery();
+      status.textContent = 'Added for everyone. Existing photos are untouched.';
       await loadRemoteGallery();
       renderAdminPanel();
-    } catch (e) {
-      status.textContent = 'Failed: ' + e.message;
-    }
+    } catch (e) { status.textContent = 'Failed: ' + e.message; }
   }
-
-  async function resetSlot(idx) {
-    var status = editorEls(idx).status;
-    status.textContent = 'Restoring original photo…';
+  async function saveReplace() {
+    var status = editorEls().status;
+    if (editingIndex === null || editingIndex === undefined) { status.textContent = 'Tap Replace on a photo first.'; return; }
+    if (!ed.img) { status.textContent = 'First choose a replacement photo.'; return; }
+    status.textContent = 'Rendering 4:5 photo…';
     try {
-      var gItem = await ghJson('gallery.json');
-      if (gItem) { gallerySha = gItem.sha; currentGallery = decodeContent(gItem) || currentGallery; }
-      if (!currentGallery.images) currentGallery.images = [];
-      var def = DEFAULTS[idx];
-      currentGallery.images[idx] = { url: def.indexOf('http') === 0 ? def : PAGES_BASE + def, mode: 'default', slot: idx + 1 };
-      var gBody = { message: 'Admin: restore gallery photo ' + (idx + 1), content: encodeContent(currentGallery), branch: BRANCH };
-      if (gallerySha) gBody.sha = gallerySha;
-      var gPut = await gh('gallery.json', 'PUT', gBody);
-      if (!gPut.ok) throw new Error('Restore failed (HTTP ' + gPut.status + ').');
-      gallerySha = (await gPut.json()).content.sha;
-      status.textContent = 'Restored to the original photo.';
+      var oldUrl = currentGallery.images[editingIndex].url;
+      var blob = await renderCanvas();
+      status.textContent = 'Uploading replacement…';
+      var pageUrl = await uploadCropped(blob);
+      currentGallery.images[editingIndex] = { url: pageUrl, mode: ed.mode, slot: editingIndex + 1, updatedAt: new Date().toISOString() };
+      status.textContent = 'Publishing gallery…';
+      await publishGallery();
+      await tryDeleteRepoFile(oldUrl);
+      status.textContent = 'Replaced photo ' + (editingIndex + 1) + ' for everyone.';
+      await loadRemoteGallery();
+      renderAdminPanel();
+    } catch (e) { status.textContent = 'Failed: ' + e.message; }
+  }
+  async function deletePhoto(idx) {
+    var status = editorEls().status;
+    var imgs = currentGallery.images;
+    if (imgs.length <= 1) { status.textContent = 'Cannot delete the last photo. Replace it instead.'; renderAdminPanel(); return; }
+    status.textContent = 'Deleting photo ' + (idx + 1) + '…';
+    try {
+      var oldUrl = imgs[idx].url;
+      imgs.splice(idx, 1);
+      await publishGallery();
+      await tryDeleteRepoFile(oldUrl);
+      status.textContent = 'Deleted. Other photos are untouched.';
       await loadRemoteGallery();
       renderAdminPanel();
     } catch (e) {
       status.textContent = 'Failed: ' + e.message;
+      renderAdminPanel();
     }
   }
 
-  // Wire the logo + modals directly: initInvitation runs after React has
-  // mounted, so a DOMContentLoaded listener here might never fire.
+  // ----- Wire editor + modals (called once, after the panel HTML exists) -----
+  function wireEditorOnce() {
+    if (wireEditorOnce.done) return;
+    wireEditorOnce.done = true;
+    var preview = $('admin-crop');
+    if (preview) {
+      preview.addEventListener('pointerdown', function (ev) {
+        if (ed.mode !== 'fill' || !ed.img) return;
+        ed.dragging = true; ed.startX = ev.clientX; ed.startY = ev.clientY;
+        ed.startDx = ed.dx; ed.startDy = ed.dy;
+        preview.setPointerCapture(ev.pointerId);
+      });
+      preview.addEventListener('pointermove', function (ev) {
+        if (!ed.dragging) return;
+        ed.dx = ed.startDx + (ev.clientX - ed.startX);
+        ed.dy = ed.startDy + (ev.clientY - ed.startY);
+        drawPreview();
+      });
+      ['pointerup', 'pointercancel'].forEach(function (t) {
+        preview.addEventListener(t, function () { ed.dragging = false; });
+      });
+    }
+    var zoom = $('admin-zoom');
+    if (zoom) zoom.addEventListener('input', function () { ed.zoom = parseFloat(zoom.value); drawPreview(); });
+    var mode = $('admin-mode');
+    if (mode) mode.addEventListener('change', function (ev) { ed.mode = ev.target.value; drawPreview(); });
+    var file = $('admin-file');
+    if (file) file.addEventListener('change', function (ev) {
+      var f = ev.target.files && ev.target.files[0];
+      if (!f) return;
+      var url = URL.createObjectURL(f);
+      var im = new Image();
+      im.onload = function () { setEditorImage(im, url); editorEls().status.textContent = 'Preview ready. Check face and body, then save.'; };
+      im.onerror = function () { editorEls().status.textContent = 'Could not read that image.'; };
+      im.src = url;
+    });
+    var urlInput = $('admin-url');
+    if (urlInput) urlInput.addEventListener('change', function (ev) {
+      var url = ev.target.value.trim();
+      if (!url) return;
+      var im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = function () { setEditorImage(im, url); editorEls().status.textContent = 'Preview ready. Note: some hosts block canvas export; if Save fails, upload the file instead.'; };
+      im.onerror = function () { editorEls().status.textContent = 'Could not load that URL.'; };
+      im.src = url;
+    });
+    var sn = $('admin-save-new'); if (sn) sn.addEventListener('click', saveNew);
+    var sr = $('admin-save-replace'); if (sr) sr.addEventListener('click', saveReplace);
+    var ce = $('admin-cancel-edit'); if (ce) ce.addEventListener('click', function () { clearEditor(); editorEls().status.textContent = 'Editor cleared.'; });
+  }
+
+  // Wire directly: initInvitation runs after React mount.
   (function () {
     var logo = $('admin-logo-btn');
     if (logo) logo.addEventListener('click', openAdminLogin);
@@ -1012,6 +1071,7 @@ function toBase64(file) {
     var cl = $('admin-login-close'); if (cl) cl.addEventListener('click', closeAdminLogin);
     var pc = $('admin-panel-close'); if (pc) pc.addEventListener('click', function () { $('admin-panel-modal').style.display = 'none'; });
     var lo = $('admin-logout-btn'); if (lo) lo.addEventListener('click', logoutAdmin);
+    wireEditorOnce();
   })();
   loadRemoteGallery();
 })();

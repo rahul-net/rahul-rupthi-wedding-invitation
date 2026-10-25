@@ -1006,4 +1006,11 @@ transition: 0.5s ease;
     padding: 11px; border-radius: 10px; margin-top: 8px;
 }
 .admin-slot-status { color: var(--gold-light); font-size: 0.8rem; min-height: 20px; margin-top: 8px; }
+.admin-count { color: var(--gold-light); font-weight: bold; }
+.admin-gallery-grid { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+.admin-gallery-item { width: calc(50% - 5px); border: 1px solid rgba(197,160,89,0.3); border-radius: 12px; padding: 8px; text-align: center; }
+.admin-gallery-item img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 8px; }
+.admin-gallery-item p { font-size: 0.8rem; margin: 6px 0; }
+.admin-small-btn { background: rgba(197,160,89,0.2); color: var(--gold-light); border: 1px solid rgba(197,160,89,0.4); padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 0.75rem; }
+.admin-danger-btn { background: rgba(220,39,67,0.15); color: #ffb7c5; border-color: rgba(220,39,67,0.4); }
 

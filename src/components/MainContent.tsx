@@ -288,8 +288,27 @@ onclick="trackClick('Map')">
 <div id="admin-panel-modal" class="admin-modal">
     <button class="admin-close" id="admin-panel-close">✕</button>
     <h3>Gallery Admin</h3>
-    <p>Each photo is saved at the fixed 4:5 gallery ratio. <b>Full photo</b> never cuts face or body (blurred background fills the frame). <b>Fill frame</b> lets you drag and zoom, and what you see in the preview is exactly what visitors will see.</p>
-    <div id="admin-slots"></div>
+    <p>New photos are <b>added at the end</b> — existing photos stay unless you tap Replace or Delete on that photo. Maximum <b>50</b> photos. Each photo is saved at the fixed 4:5 gallery ratio. <b>Full photo</b> never cuts face or body (blurred background fills the frame). <b>Fill frame</b> lets you drag and zoom, and what you see in the preview is exactly what visitors will see.</p>
+    <div id="admin-gallery-list"></div>
+    <div id="admin-editor">
+        <p class="admin-slot-title" id="admin-editor-title">Add new photo</p>
+        <div class="admin-crop" id="admin-crop">
+            <img id="admin-crop-img" alt="Crop preview">
+        </div>
+        <input type="file" accept="image/*" class="admin-file" id="admin-file">
+        <input type="text" placeholder="Or paste an image URL" class="admin-url" id="admin-url">
+        <label class="admin-label">Mode:
+            <select id="admin-mode">
+                <option value="full">Full photo, no cut (blurred background)</option>
+                <option value="fill">Fill frame, drag to position</option>
+            </select></label>
+        <label class="admin-label">Zoom (fill mode):
+            <input type="range" min="1" max="2.5" step="0.05" value="1" id="admin-zoom"></label>
+        <button class="admin-save-btn" id="admin-save-new">Save as new photo</button>
+        <button class="admin-save-btn" id="admin-save-replace" style="display:none;">Save replacement</button>
+        <button class="admin-reset-btn" id="admin-cancel-edit">Clear editor</button>
+        <p class="admin-slot-status" id="admin-editor-status"></p>
+    </div>
     <button class="admin-logout-btn" id="admin-logout-btn">Logout — remove token from this device</button>
 </div>
 `;
