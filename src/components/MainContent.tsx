@@ -267,8 +267,28 @@ onclick="trackClick('Map')">
             <footer style="margin-top: 60px; opacity: 0.2; font-size: 0.6rem; letter-spacing: 3px;">
                 DESIGNED WITH LOVE • 2026
             </footer>
+<div class="admin-logo-wrap">
+    <button class="admin-logo-btn" id="admin-logo-btn" title="Admin" aria-label="Admin">💍</button>
+</div>
         </section>
-    </div>`;
+    </div>
+<div id="admin-login-modal" class="admin-modal">
+    <button class="admin-close" id="admin-login-close">✕</button>
+    <h3>Admin Login</h3>
+    <p>Paste a GitHub fine-grained token for the <b>rahul-net/Wedding-Invitation</b> repo only, with <b>Contents: Read and write</b>. The token is saved only on this device, never in the website code, and is sent only to GitHub's API. Never share it in chat. You can revoke it anytime in GitHub Settings → Developer settings → Personal access tokens.</p>
+    <input type="password" id="admin-token" placeholder="Paste GitHub token here" autocomplete="off">
+    <button class="admin-connect-btn" id="admin-connect-btn">Connect</button>
+    <p id="admin-login-status"></p>
+</div>
+
+<div id="admin-panel-modal" class="admin-modal">
+    <button class="admin-close" id="admin-panel-close">✕</button>
+    <h3>Gallery Admin</h3>
+    <p>Each photo is saved at the fixed 4:5 gallery ratio. <b>Full photo</b> never cuts face or body (blurred background fills the frame). <b>Fill frame</b> lets you drag and zoom, and what you see in the preview is exactly what visitors will see.</p>
+    <div id="admin-slots"></div>
+    <button class="admin-logout-btn" id="admin-logout-btn">Logout — remove token from this device</button>
+</div>
+`;
 
 export default function MainContent() {
   return <div dangerouslySetInnerHTML={{ __html: MainContentHtml }} style={{ display: "contents" }} />;
