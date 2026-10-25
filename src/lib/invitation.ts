@@ -8,6 +8,24 @@ export function initInvitation(): void {
   if ((window as any).__invitationInitialized) return;
   (window as any).__invitationInitialized = true;
 
+  // Gallery consumer (added 2026-10-25): the hidden admin panel writes
+  // gallery.json to rahul-net/Wedding-Invitation. Load it here, in place,
+  // so this converted site shows the same admin gallery as the single-file
+  // site. Any failure keeps the built-in 3 images. CORS: GitHub Pages
+  // serves Access-Control-Allow-Origin: *.
+  (async function loadRemoteGallery() {
+    try {
+      const res = await fetch('https://rahul-net.github.io/Wedding-Invitation/gallery.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const imgs = (data && data.images) || [];
+      const slides = document.querySelectorAll('.slide img');
+      for (let i = 0; i < slides.length && i < imgs.length; i++) {
+        if (imgs[i] && imgs[i].url) (slides[i] as HTMLImageElement).src = imgs[i].url;
+      }
+    } catch (e) { /* offline / no gallery.json: keep defaults */ }
+  })();
+
         const audio = document.getElementById('bgMusic');
         const VISITOR_LOG_URL =
 "https://script.google.com/macros/s/AKfycbzY-Cqgksve3QyLf8qiJwOtS_3KDgSLpGrZUGIBlJzRQT6YFX3yfCiZ5eecQ0ykYepY/exec";
