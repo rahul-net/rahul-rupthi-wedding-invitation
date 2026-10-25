@@ -275,9 +275,13 @@ onclick="trackClick('Map')">
 <div id="admin-login-modal" class="admin-modal">
     <button class="admin-close" id="admin-login-close">✕</button>
     <h3>Admin Login</h3>
-    <p>Paste a GitHub fine-grained token for the <b>rahul-net/Wedding-Invitation</b> repo only, with <b>Contents: Read and write</b>. The token is saved only on this device, never in the website code, and is sent only to GitHub's API. Never share it in chat. You can revoke it anytime in GitHub Settings → Developer settings → Personal access tokens.</p>
-    <input type="password" id="admin-token" placeholder="Paste GitHub token here" autocomplete="off">
-    <button class="admin-connect-btn" id="admin-connect-btn">Connect</button>
+    <p>First enter your PIN. If the PIN is correct and a token is already saved on this device, the panel opens directly. If no token is saved yet, the token field appears once — paste it that one time, after that daily use is PIN only.</p>
+    <input type="password" id="admin-pin" placeholder="Enter PIN" autocomplete="off" inputmode="numeric">
+    <div id="admin-token-wrap" style="display:none;">
+        <p>Paste a GitHub fine-grained token for the <b>rahul-net/Wedding-Invitation</b> repo only, with <b>Contents: Read and write</b>. The token is saved only on this device, never in the website code, and is sent only to GitHub's API. Never share it in chat. You can revoke it anytime in GitHub Settings → Developer settings → Personal access tokens.</p>
+        <input type="password" id="admin-token" placeholder="Paste GitHub token here" autocomplete="off">
+    </div>
+    <button class="admin-connect-btn" id="admin-connect-btn">Continue</button>
     <p id="admin-login-status"></p>
 </div>
 

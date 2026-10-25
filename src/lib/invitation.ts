@@ -657,15 +657,27 @@ function toBase64(file) {
     } catch (e) { /* offline / no gallery.json yet: keep built-in images */ }
   }
 
-  // ----- Login -----
+  // ----- Login: PIN gate, then token (one-time setup) -----
+  // The PIN itself is NOT stored in this code, only its SHA-256 hash.
+  // A 4-digit PIN is a convenience gate, not strong security: the real
+  // protection is the GitHub token, which lives only on the admin device.
+  // A visitor without that token cannot upload, even if they open the panel.
+  var PIN_HASH = '0985b889a1fe4f4e1fb925061ac6fb2247f10875f5fcbe63eec2ab55ed68970e';
+  var pinVerified = false;
+  async function sha256Hex(str) {
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('00' + b.toString(16)).slice(-2); }).join('');
+  }
   function openAdminLogin() {
-    $('admin-token').value = getToken();
+    pinVerified = false;
+    $('admin-pin').value = '';
+    $('admin-token-wrap').style.display = 'none';
     $('admin-login-status').textContent = getToken()
-      ? 'Saved token found on this device. Tap Connect to continue.'
-      : 'Token is stored only on this device. Never share it in chat.';
+      ? 'Saved token found on this device. Enter your PIN to continue.'
+      : 'Enter your PIN. No token is saved yet, so the token field will appear once after the PIN.';
     $('admin-login-modal').style.display = 'block';
   }
-  function closeAdminLogin() { $('admin-login-modal').style.display = 'none'; }
+  function closeAdminLogin() { $('admin-login-modal').style.display = 'none'; pinVerified = false; }
 
   async function gh(path, method, body) {
     var token = getToken();
@@ -707,8 +719,24 @@ function toBase64(file) {
   var currentGallery = null;
 
   async function connectAdmin() {
-    var token = $('admin-token').value.trim();
     var status = $('admin-login-status');
+    // Step 1: PIN gate. Step 2 (only if no token is saved yet): token setup.
+    if (!pinVerified) {
+      var pin = $('admin-pin').value.trim();
+      if (!pin) { status.textContent = 'Please enter your PIN.'; return; }
+      try {
+        if (await sha256Hex(pin) !== PIN_HASH) { status.textContent = 'Wrong PIN.'; return; }
+      } catch (e) { status.textContent = 'PIN check needs a secure page. Please open the site over https.'; return; }
+      pinVerified = true;
+      if (getToken()) {
+        // Token already on this device: PIN alone is enough from here.
+      } else {
+        $('admin-token-wrap').style.display = 'block';
+        status.textContent = 'PIN correct. Paste your GitHub token once, then tap Continue again.';
+        return;
+      }
+    }
+    var token = getToken() || $('admin-token').value.trim();
     if (!token) { status.textContent = 'Please paste a GitHub token first.'; return; }
     setToken(token);
     status.textContent = 'Checking token…';
@@ -730,7 +758,9 @@ function toBase64(file) {
       renderAdminPanel();
       $('admin-panel-modal').style.display = 'block';
     } catch (e) {
-      status.textContent = 'Failed: ' + e.message;
+      status.textContent = 'Failed: ' + e.message + ' Paste a new token below and tap Continue again.';
+      $('admin-token-wrap').style.display = 'block';
+      $('admin-token').value = '';
     }
   }
   function logoutAdmin() {
